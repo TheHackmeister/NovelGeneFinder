@@ -1,4 +1,5 @@
 import sys
+import os
 import numpy
 import matplotlib
 matplotlib.use('Agg') 
@@ -48,12 +49,14 @@ class Hmm(object):
         self.breakpoints = [0] * self.modelLength
         self.coverageMean = numpy.average(self.vector)
         self.coverageStd = numpy.std(self.vector)
+        self.coveragePercent = sum([1 for x in self.vector if x])/float(len(self.vector))
         self.missingBlocks = [0] * len(self.vector)
         for i, value in enumerate(self.vector):
             if value < self.coverageMean * cutoff:
-                self.missingBlocks[i] = 100
+                self.missingBlocks[i] = 1
             else:
                 self.missingBlocks[i] = 0
+        self.highCoveragePercent = sum(self.missingBlocks)/float(len(self.missingBlocks))
 
     # Breakpoints are where sequences start and stop. We thought this would be
     # helpful, but it was not. Probably won't be used.
@@ -64,21 +67,36 @@ class Hmm(object):
     # Creates and saves a graph that shows the coverage and areas of low 
     # coverage. 
     def drawVectorAndBreakpoints(self, location = "graphs/"):
+        self.calcBlocks()
+
         # Testing to see if this works. It may not.
         if self.coverageMean == 0:
             return
-        pyplot.plot(self.vector);
-        pyplot.plot(self.breakpoints);
-        pyplot.plot([x * self.coverageMean * .8 for x in self.missingBlocks]);
-        pyplot.axhline(self.coverageMean);
-        pyplot.axhline(self.coverageMean*1.1);
-        pyplot.axhline(self.coverageMean*.75);
+        pyplot.plot(self.vector, c = "b");
+        pyplot.plot(self.breakpoints, c = "m");
+        pyplot.plot([x * self.coverageMean * .8 for x in self.missingBlocks], c = "r");
+        pyplot.axhline(self.coverageMean, c = "g");
+        pyplot.axhline(self.coverageMean*.75, c = "y");
         pyplot.xlabel("Base");
         pyplot.ylabel("Count");
-        pyplot.title(self.model + ": " + str(self.modelLength) 
-                + " mean: " + str(self.coverageMean)
-                + " std: " + str(self.coverageStd))
+        pyplot.title(self.model + ": " + str(self.modelLength) + "\n" 
+                + " mean: " + str(int(self.coverageMean)) + "       "
+                + " std: " + str(int(self.coverageStd)) + "\n"
+                + " coverage: " + str(self.coveragePercent))
         pyplot.draw();
+        
+        if self.coveragePercent > 0.8 and self.highCoveragePercent > 0.4: 
+            location = location + "high_coverage/"
+        else:
+            location = location + "low_coverage/"
+
+        if not os.path.exists(os.path.dirname(location)):
+            try:
+                os.makedirs(os.path.dirname(location))
+            except OSError as exc:
+                if exc.errno != errno.EEXIST:
+                    raise
+
         pyplot.savefig(location + "coverage-and-breakpoints-" + self.model + ".png");
         pyplot.close()
 
@@ -88,16 +106,17 @@ class Hmm(object):
         return self.__str__(); 
 
     # Create a dictionary with HMMs from a skew file.
-    @staticmethod
-    def createHmms(fileLoc):
-        hmmDic = {};
-        with openFile(fileLoc) as hmms:
-            next(hmms); # Skip the header
-            for line in hmms:
-                newHmm = Hmm(line);
-                newHmm.calcBlocks();
-                hmmDic[newHmm.model] = newHmm;
-        return hmmDic;
+# Not currently used
+#    @staticmethod
+#    def createHmms(fileLoc):
+#        hmmDic = {};
+#        with openFile(fileLoc) as hmms:
+#            next(hmms); # Skip the header
+#            for line in hmms:
+#                newHmm = Hmm(line);
+#                newHmm.calcBlocks();
+#                hmmDic[newHmm.model] = newHmm;
+#        return hmmDic;
 
     # Creates and dictionary with HMMs from a hammer file.
     # It also does the calculations needed to create graphs.
@@ -123,14 +142,14 @@ class Hmm(object):
         return hmmDic;
 
     # I don't think I used this any more. Will remove eventually.
-    @staticmethod
-    def createHmmSequences(fileLoc):
-        hmm = {}
-        with openFile(fileLoc) as hmmFile:
-            for line in hmmFile:
-                l = line.split(" ");
-                hmm[l[0]] = l[1:]
-        return hmm
+#    @staticmethod
+#    def createHmmSequences(fileLoc):
+#        hmm = {}
+#        with openFile(fileLoc) as hmmFile:
+#            for line in hmmFile:
+#                l = line.split(" ");
+#                hmm[l[0]] = l[1:]
+#        return hmm
 
 
 
